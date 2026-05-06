@@ -598,6 +598,10 @@ label{font-family:'DM Mono',monospace;font-size:.63rem;text-transform:uppercase;
     <div class="modal-handle"></div>
     <div class="modal-title" id="stock-modal-title">📦 Add Stock Item</div>
     <div class="field"><label>Item Name</label><input type="text" id="si-name" placeholder="e.g. Samsung A55"></div>
+    <div class="field-row">
+      <div class="field" style="margin:0"><label>Selling Price (GH₵)</label><input type="number" id="si-price" placeholder="0.00" min="0" step="0.01"></div>
+      <div class="field" style="margin:0"><label>Cost Price (GH₵)</label><input type="number" id="si-cost" placeholder="0.00" min="0" step="0.01"></div>
+    </div>
     <div class="field-row" style="margin-bottom:0">
       <div class="field" style="margin:0"><label>Current Stock</label><input type="number" id="si-qty" placeholder="0" min="0" step="1"></div>
       <div class="field" style="margin:0"><label>Low Alert At</label><input type="number" id="si-low" placeholder="5" min="0" step="1"></div>
@@ -1117,7 +1121,12 @@ window.selectStockItem=function(id){
   const input=document.getElementById('f-item');
   input.value=s.name;
   input.dataset.stockId=s.id;
+  input.dataset.stockQty=s.qty;
   document.getElementById('stock-suggestions').style.display='none';
+  // Auto-fill price and cost if set on the stock item
+  if(s.price){document.getElementById('f-price').value=s.price;}
+  if(s.cost){document.getElementById('f-cost').value=s.cost;}
+  if(s.price||s.cost){window.updatePreview();}
   const isLow=(s.qty||0)<=(s.low||5);
   const icon=s.qty===0?'❌':isLow?'⚠️':'📦';
   showToast(icon, s.qty===0?`${s.name} is OUT OF STOCK`:isLow?`${s.name}: only ${s.qty} left`:`${s.name}: ${s.qty} in stock`);
@@ -1169,19 +1178,21 @@ function renderTopItems(arr){
 function renderStock(){
   const el=document.getElementById('stock-grid');
   if(!window.stock.length){el.innerHTML='<div class="empty-state"><div class="ei">📦</div><p>No stock items yet.</p></div>';return;}
-  el.innerHTML=window.stock.map(s=>{const isLow=s.qty<=s.low,isWarn=s.qty<=s.low*2&&!isLow;const cls=isLow?'low':isWarn?'warn':'ok';const icon=isLow?'🚨':isWarn?'⚠️':'✅';const pct=Math.min(100,Math.round((s.qty/Math.max(s.low*3,1))*100));return `<div class="stock-card ${cls}"><div class="stock-icon">${icon}</div><div class="stock-info"><div class="stock-name">${s.name}</div><div class="stock-detail">Alert at ${s.low} units</div><div class="stock-bar-bg"><div class="stock-bar-fill" style="width:${pct}%"></div></div></div><div class="stock-qty-wrap"><div class="stock-qty">${s.qty}</div><div class="stock-unit">units</div><div style="display:flex;gap:4px;margin-top:6px"><button class="btn btn-xs btn-ghost" style="padding:5px 8px" onclick="editStockItem('${s.id}')">✏️</button><button class="btn btn-xs btn-red" style="padding:5px 8px" onclick="deleteStock('${s.id}')">🗑️</button></div></div></div>`;}).join('');
+  el.innerHTML=window.stock.map(s=>{const isLow=s.qty<=s.low,isWarn=s.qty<=s.low*2&&!isLow;const cls=isLow?'low':isWarn?'warn':'ok';const icon=isLow?'🚨':isWarn?'⚠️':'✅';const pct=Math.min(100,Math.round((s.qty/Math.max(s.low*3,1))*100));const priceInfo=s.price?`<span style="color:var(--accent);font-family:'DM Mono',monospace;font-size:.65rem">Sell: ${fmt(s.price)}</span>${s.cost?` · <span style="color:var(--muted);font-family:'DM Mono',monospace;font-size:.65rem">Cost: ${fmt(s.cost)}</span>`:''}`:s.cost?`<span style="color:var(--muted);font-family:'DM Mono',monospace;font-size:.65rem">Cost: ${fmt(s.cost)}</span>`:'';return `<div class="stock-card ${cls}"><div class="stock-icon">${icon}</div><div class="stock-info"><div class="stock-name">${s.name}</div><div class="stock-detail">Alert at ${s.low} units${priceInfo?` · `+priceInfo:''}</div><div class="stock-bar-bg"><div class="stock-bar-fill" style="width:${pct}%"></div></div></div><div class="stock-qty-wrap"><div class="stock-qty">${s.qty}</div><div class="stock-unit">units</div><div style="display:flex;gap:4px;margin-top:6px"><button class="btn btn-xs btn-ghost" style="padding:5px 8px" onclick="editStockItem('${s.id}')">✏️</button><button class="btn btn-xs btn-red" style="padding:5px 8px" onclick="deleteStock('${s.id}')">🗑️</button></div></div></div>`;}).join('');
 }
-window.openAddStock=function(){editStockId=null;document.getElementById('stock-modal-title').textContent='📦 Add Stock Item';['si-name','si-qty'].forEach(id=>document.getElementById(id).value='');document.getElementById('si-low').value='5';openModal('stock-modal');};
-window.editStockItem=function(id){const s=window.stock.find(x=>x.id===id);if(!s)return;editStockId=id;document.getElementById('stock-modal-title').textContent='✏️ Edit Stock';document.getElementById('si-name').value=s.name;document.getElementById('si-qty').value=s.qty;document.getElementById('si-low').value=s.low;openModal('stock-modal');};
+window.openAddStock=function(){editStockId=null;document.getElementById('stock-modal-title').textContent='📦 Add Stock Item';['si-name','si-qty','si-price','si-cost'].forEach(id=>document.getElementById(id).value='');document.getElementById('si-low').value='5';openModal('stock-modal');};
+window.editStockItem=function(id){const s=window.stock.find(x=>x.id===id);if(!s)return;editStockId=id;document.getElementById('stock-modal-title').textContent='✏️ Edit Stock';document.getElementById('si-name').value=s.name;document.getElementById('si-qty').value=s.qty;document.getElementById('si-low').value=s.low;document.getElementById('si-price').value=s.price||'';document.getElementById('si-cost').value=s.cost||'';openModal('stock-modal');};
 window.saveStock=async function(){
   const name=document.getElementById('si-name').value.trim();
   const qty=parseInt(document.getElementById('si-qty').value)||0;
   const low=parseInt(document.getElementById('si-low').value)||5;
+  const price=parseFloat(document.getElementById('si-price').value)||0;
+  const cost=parseFloat(document.getElementById('si-cost').value)||0;
   if(!name){showToast('⚠️','Enter item name');return;}
   setSyncing(true);
   try{
-    if(editStockId){await setDoc(doc(db,'users',currentUser.uid,'stock',editStockId),{name,qty,low,updatedAt:serverTimestamp()},{merge:true});showToast('✏️','Stock updated!');}
-    else{await addDoc(stockCol,{name,qty,low,createdAt:serverTimestamp()});showToast('✅','Stock item added!');}
+    if(editStockId){await setDoc(doc(db,'users',currentUser.uid,'stock',editStockId),{name,qty,low,price,cost,updatedAt:serverTimestamp()},{merge:true});showToast('✏️','Stock updated!');}
+    else{await addDoc(stockCol,{name,qty,low,price,cost,createdAt:serverTimestamp()});showToast('✅','Stock item added!');}
     closeModal('stock-modal');
   }catch(e){showToast('❌','Error saving');}
   setSyncing(false);
